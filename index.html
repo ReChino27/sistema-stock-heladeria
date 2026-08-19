@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stock · Heladería & Cafetería</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#17202a;--muted:#667085;--line:#e4e7ec;--accent:#7c3aed;--danger:#dc2626;--warn:#d97706;--ok:#15803d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{background:#111827;color:#fff;padding:18px 22px;position:sticky;top:0;z-index:10}.head{max-width:1250px;margin:auto;display:flex;justify-content:space-between;gap:16px;align-items:center}.brand h1{margin:0;font-size:21px}.brand small{color:#cbd5e1}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:9px;padding:10px 13px;font-weight:700;cursor:pointer;background:#fff;color:#111827}.btn.primary{background:var(--accent);color:#fff}.btn.dark{background:#374151;color:#fff}.btn.danger{background:#fee2e2;color:#991b1b}.btn:disabled{opacity:.5;cursor:not-allowed}
+main{max-width:1250px;margin:22px auto;padding:0 16px}.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}.tab{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:left;cursor:pointer}.tab strong{display:block}.tab span{font-size:12px;color:var(--muted)}.tab.active{border-color:var(--accent);box-shadow:0 0 0 2px #ede9fe}
+.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}.toolbar h2{margin:0}.search{border:1px solid var(--line);padding:10px 12px;border-radius:9px;min-width:240px}
+.alert{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:11px;padding:12px 14px;margin-bottom:15px}.hidden{display:none!important}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px}.card.low{border-color:#fdba74}.card-top{display:flex;justify-content:space-between;gap:8px}.card h3{margin:0 0 4px}.meta{color:var(--muted);font-size:12px}.qty{font-size:27px;font-weight:800;margin:14px 0 4px}.status{font-size:12px;font-weight:800}.status.ok{color:var(--ok)}.status.low{color:var(--danger)}.bar{height:8px;background:#eef2f7;border-radius:99px;overflow:hidden;margin:10px 0 14px}.bar i{display:block;height:100%;background:var(--ok);border-radius:99px}.low .bar i{background:var(--warn)}.card-actions{display:flex;gap:7px}.mini{flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-weight:700}
+.empty{padding:45px;text-align:center;color:var(--muted);background:#fff;border:1px dashed var(--line);border-radius:14px}
+.modal-back{position:fixed;inset:0;background:#0008;display:grid;place-items:center;padding:18px;z-index:30}.modal{background:#fff;width:min(520px,100%);border-radius:15px;padding:20px;box-shadow:0 20px 70px #0005}.modal h2{margin-top:0}.form{display:grid;gap:10px}.form label{font-weight:700}.form input,.form select{width:100%;padding:11px;border:1px solid var(--line);border-radius:9px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.toast{position:fixed;right:18px;bottom:18px;background:#111827;color:#fff;padding:12px 15px;border-radius:10px;z-index:50;box-shadow:0 10px 30px #0003}
+footer{max-width:1250px;margin:25px auto;padding:0 16px 30px;color:var(--muted);font-size:12px}
+@media(max-width:700px){.tabs{grid-template-columns:1fr 1fr}.row{grid-template-columns:1fr}.head{align-items:flex-start;flex-direction:column}.search{min-width:0;width:100%}}
+</style>
+</head>
+<body>
+<header><div class="head">
+<div class="brand"><h1>Stock · Heladería & Cafetería</h1><small id="syncLabel">Modo local</small></div>
+<div class="actions">
+<button class="btn" onclick="exportCSV()">Exportar Excel/CSV</button>
+<button class="btn dark" onclick="openConfig()">Google Sheets</button>
+<button class="btn primary" onclick="newProduct()">+ Nuevo producto</button>
+</div>
+</div></header>
+
+<main>
+<div class="tabs">
+<button class="tab active" data-section="cafeteria" onclick="switchSection('cafeteria')"><strong>☕ Cafetería</strong><span>café, bebidas, descartables</span></button>
+<button class="tab" data-section="limpieza" onclick="switchSection('limpieza')"><strong>🧽 Insumos de limpieza</strong><span>limpieza y mantenimiento</span></button>
+<button class="tab" data-section="insumos" onclick="switchSection('insumos')"><strong>🍦 Insumos de heladería 🔒</strong><span>requiere usuario y contraseña</span></button>
+<button class="tab" data-section="helados" onclick="switchSection('helados')"><strong>🍨 Helado en stock 🔒</strong><span>requiere usuario y contraseña</span></button>
+</div>
+
+<div id="alert" class="alert hidden"></div>
+<div class="toolbar"><h2 id="sectionTitle">Cafetería</h2><input id="search" class="search" placeholder="Buscar producto..." oninput="render()"></div>
+<div id="grid" class="grid"></div>
+</main>
+<footer>Los cambios se guardan localmente y, si configurás Google Apps Script, también quedan registrados en Google Sheets con usuario, fecha, acción y detalle.</footer>
+
+<div id="modalBack" class="modal-back hidden"><div class="modal" id="modal"></div></div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+const SENSITIVE=['insumos','helados'];
+const SECTION_NAMES={cafeteria:'Cafetería',limpieza:'Insumos de limpieza',insumos:'Insumos de heladería',helados:'Helado en stock'};
+let section='cafeteria', products=JSON.parse(localStorage.getItem('stock_products')||'[]');
+let config=JSON.parse(localStorage.getItem('stock_config')||'{}');
+let session=JSON.parse(sessionStorage.getItem('stock_session')||'null');
+
+function seed(){
+ if(products.length)return;
+ products=[
+  {id:crypto.randomUUID(),name:'Café en grano',section:'cafeteria',unit:'kg',qty:5,min:2},
+  {id:crypto.randomUUID(),name:'Vasos para café',section:'cafeteria',unit:'un',qty:250,min:80},
+  {id:crypto.randomUUID(),name:'Detergente',section:'limpieza',unit:'L',qty:8,min:3},
+  {id:crypto.randomUUID(),name:'Servilletas',section:'limpieza',unit:'un',qty:500,min:100},
+  {id:crypto.randomUUID(),name:'Base crema',section:'insumos',unit:'kg',qty:12,min:4},
+  {id:crypto.randomUUID(),name:'Chocolate cobertura',section:'insumos',unit:'kg',qty:7,min:2},
+  {id:crypto.randomUUID(),name:'Chocolate',section:'helados',unit:'L',qty:18,min:5},
+  {id:crypto.randomUUID(),name:'Dulce de leche',section:'helados',unit:'L',qty:11,min:4}
+ ];
+ saveLocal();
+}
+function saveLocal(){localStorage.setItem('stock_products',JSON.stringify(products));}
+function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.remove('hidden');setTimeout(()=>x.classList.add('hidden'),2600)}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function switchSection(s){
+ if(SENSITIVE.includes(s)&&(!session||session.expires<Date.now())) return openLogin(s);
+ section=s;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.section===s));
+ document.getElementById('sectionTitle').textContent=SECTION_NAMES[s];render();
+}
+function render(){
+ const q=document.getElementById('search').value.toLowerCase();
+ const arr=products.filter(p=>p.section===section && p.name.toLowerCase().includes(q));
+ const grid=document.getElementById('grid');
+ if(!arr.length){grid.innerHTML='<div class="empty">No hay productos en esta sección.</div>';return}
+ grid.innerHTML=arr.map(p=>{
+   const low=Number(p.qty)<=Number(p.min), pct=Math.min(100,Math.max(3,(p.qty/Math.max(p.min*2,1))*100));
+   return `<article class="card ${low?'low':''}">
+    <div class="card-top"><div><h3>${esc(p.name)}</h3><div class="meta">${esc(p.unit)} · mínimo ${p.min}</div></div><div class="status ${low?'low':'ok'}">${low?'BAJO':'OK'}</div></div>
+    <div class="qty">${p.qty} <span class="meta">${esc(p.unit)}</span></div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <div class="card-actions"><button class="mini" onclick="changeQty('${p.id}',-1)">−</button><button class="mini" onclick="changeQty('${p.id}',1)">+</button><button class="mini" onclick="editProduct('${p.id}')">Editar</button></div>
+   </article>`
+ }).join('');
+ const lows=products.filter(p=>p.qty<=p.min);
+ const a=document.getElementById('alert');
+ if(lows.length){a.classList.remove('hidden');a.innerHTML='<b>Alertas de stock:</b> '+lows.map(p=>esc(p.name)+' ('+p.qty+' '+esc(p.unit)+')').join(' · ')}
+ else a.classList.add('hidden');
+}
+function newProduct(){openProductModal()}
+function openProductModal(p=null){
+ document.getElementById('modal').innerHTML=`<h2>${p?'Editar':'Nuevo'} producto</h2><div class="form">
+<label>Nombre<input id="fName" value="${p?esc(p.name):''}"></label>
+<div class="row"><label>Sección<select id="fSection">${Object.entries(SECTION_NAMES).map(([k,v])=>`<option value="${k}" ${((p?p.section:section)===k)?'selected':''}>${v}</option>`).join('')}</select></label>
+<label>Unidad<select id="fUnit">${['un','kg','L','caja','bolsa'].map(u=>`<option ${p&&p.unit===u?'selected':''}>${u}</option>`).join('')}</select></label></div>
+<div class="row"><label>Cantidad<input id="fQty" type="number" min="0" step="0.01" value="${p?p.qty:0}"></label><label>Mínimo<input id="fMin" type="number" min="0" step="0.01" value="${p?p.min:0}"></label></div>
+</div><div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveProduct('${p?p.id:''}')">Guardar</button></div>`;
+ showModal();
+}
+function saveProduct(id){
+ const name=document.getElementById('fName').value.trim(), sec=document.getElementById('fSection').value, unit=document.getElementById('fUnit').value;
+ const qty=Number(document.getElementById('fQty').value), min=Number(document.getElementById('fMin').value);
+ if(!name){toast('Ingresá un nombre');return}
+ let p=products.find(x=>x.id===id), old=p?JSON.stringify(p):null;
+ if(p) Object.assign(p,{name,section:sec,unit,qty,min}); else {p={id:crypto.randomUUID(),name,section:sec,unit,qty,min};products.push(p)}
+ saveLocal();closeModal();render();sync({action:id?'EDITAR':'CREAR',product:p,old});toast('Guardado');
+}
+function editProduct(id){openProductModal(products.find(p=>p.id===id))}
+function changeQty(id,d){
+ const p=products.find(x=>x.id===id);if(!p)return;const old=p.qty;p.qty=Math.max(0,Number((p.qty+d).toFixed(2)));saveLocal();render();sync({action:'CAMBIO_CANTIDAD',product:p,oldQty:old,newQty:p.qty})
+}
+function openLogin(target){
+ document.getElementById('modal').innerHTML=`<h2>Acceso protegido</h2><p>Esta sección requiere usuario y contraseña.</p><div class="form"><label>Usuario<input id="loginUser" autocomplete="username"></label><label>Contraseña<input id="loginPass" type="password" autocomplete="current-password"></label></div><div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="doLogin('${target}')">Ingresar</button></div>`;
+ showModal();
+}
+async function doLogin(target){
+ const u=document.getElementById('loginUser').value.trim(), p=document.getElementById('loginPass').value;
+ if(!u||!p)return toast('Completá usuario y contraseña');
+ if(config.scriptUrl){
+  try{
+   const r=await api('login',{username:u,password:p});
+   if(!r.ok)throw Error(r.message||'Acceso rechazado');
+   session={token:r.token,user:u,expires:Date.now()+8*60*60*1000};sessionStorage.setItem('stock_session',JSON.stringify(session));
+  }catch(e){toast(e.message||'No se pudo iniciar sesión');return}
+ }else{
+  if(u!=='admin'||p!=='admin123'){toast('Usuario o contraseña incorrectos');return}
+  session={token:'local',user:u,expires:Date.now()+8*60*60*1000};sessionStorage.setItem('stock_session',JSON.stringify(session));
+ }
+ closeModal();section=target;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.section===target));document.getElementById('sectionTitle').textContent=SECTION_NAMES[target];render();toast('Sesión iniciada');
+}
+function openConfig(){
+ document.getElementById('modal').innerHTML=`<h2>Conexión con Google Sheets</h2><div class="form"><label>URL de Google Apps Script<input id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(config.scriptUrl||'')}"></label><p class="meta">Pegá acá la URL de la implementación web de tu Apps Script. El sistema seguirá funcionando localmente si la dejás vacía.</p></div><div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveConfig()">Guardar</button></div>`;
+ showModal();
+}
+function saveConfig(){config.scriptUrl=document.getElementById('scriptUrl').value.trim();localStorage.setItem('stock_config',JSON.stringify(config));closeModal();document.getElementById('syncLabel').textContent=config.scriptUrl?'Google Sheets conectado':'Modo local';toast('Configuración guardada')}
+function showModal(){document.getElementById('modalBack').classList.remove('hidden')}
+function closeModal(){document.getElementById('modalBack').classList.add('hidden')}
+async function api(action,data={}){
+ const body=JSON.stringify({action,...data});
+ const r=await fetch(config.scriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body});
+ return await r.json();
+}
+async function sync(ev){
+ if(!config.scriptUrl)return;
+ try{await api('log',{token:session?.token||'',user:session?.user||'local',action:ev.action,product:ev.product||null,old:ev.old||ev.oldQty||'',newQty:ev.newQty??''});}
+ catch(e){console.warn('No se pudo registrar en Sheets',e)}
+}
+function exportCSV(){
+ const rows=[['ID','Producto','Sección','Unidad','Cantidad','Mínimo','Estado']];
+ products.forEach(p=>rows.push([p.id,p.name,SECTION_NAMES[p.section],p.unit,p.qty,p.min,p.qty<=p.min?'BAJO':'OK']));
+ const csv=rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(';')).join('\\n');
+ const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent('\\ufeff'+csv);a.download='stock_heladeria.csv';a.click();
+}
+seed();
+document.getElementById('syncLabel').textContent=config.scriptUrl?'Google Sheets conectado':'Modo local';
+render();
+</script>
+</body>
+</html>
